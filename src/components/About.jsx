@@ -17,7 +17,7 @@ function HiddenPiano() {
   const oscillatorRef = useRef(null)
   const gainRef = useRef(null)
 
-  const keys = [
+  const whiteKeys = [
     { note: 'C', freq: 261.63 },
     { note: 'D', freq: 293.66 },
     { note: 'E', freq: 329.63 },
@@ -25,6 +25,17 @@ function HiddenPiano() {
     { note: 'G', freq: 392.00 },
     { note: 'A', freq: 440.00 },
     { note: 'B', freq: 493.88 },
+    { note: 'C2', freq: 523.25 },
+  ]
+
+  const blackKeys = [
+    { note: 'C#', freq: 277.18, position: 0 },
+    { note: 'D#', freq: 311.13, position: 1 },
+    // no black key after E
+    { note: 'F#', freq: 369.99, position: 3 },
+    { note: 'G#', freq: 415.30, position: 4 },
+    { note: 'A#', freq: 466.16, position: 5 },
+    // no black key after B
   ]
 
   const playNote = (freq) => {
@@ -33,7 +44,7 @@ function HiddenPiano() {
     if (ctx.state === 'suspended') ctx.resume()
     
     if (oscillatorRef.current) {
-      oscillatorRef.current.stop()
+      try { oscillatorRef.current.stop() } catch(e) {}
     }
 
     const osc = ctx.createOscillator()
@@ -65,25 +76,54 @@ function HiddenPiano() {
   }
 
   return (
-    <div className="mt-6">
-      {/* Looks like a decorative divider/graphic */}
-      <div className="flex justify-center gap-[2px] h-8 opacity-30 hover:opacity-100 transition-opacity duration-500">
-        {keys.map((key) => (
-          <motion.div
-            key={key.note}
-            className={`w-6 rounded-b-sm cursor-pointer transition-colors duration-100
-              ${activeKey === key.note 
-                ? 'bg-accent' 
-                : 'bg-text/40 hover:bg-text/60'}`}
-            onMouseDown={() => { setActiveKey(key.note); playNote(key.freq) }}
-            onMouseUp={stopNote}
-            onMouseLeave={() => activeKey === key.note && stopNote()}
-            onTouchStart={() => { setActiveKey(key.note); playNote(key.freq) }}
-            onTouchEnd={stopNote}
-            whileTap={{ scaleY: 0.95 }}
-            style={{ originY: 0 }}
-          />
-        ))}
+    <div className="mt-8">
+      {/* Looks like a decorative piano graphic */}
+      <div className="flex justify-center opacity-40 hover:opacity-100 transition-opacity duration-500">
+        <div className="relative">
+          {/* White keys */}
+          <div className="flex gap-[2px]">
+            {whiteKeys.map((key) => (
+              <motion.div
+                key={key.note}
+                className={`w-5 h-10 rounded-b cursor-pointer transition-colors duration-75 border-x border-b border-text/10
+                  ${activeKey === key.note 
+                    ? 'bg-accent' 
+                    : 'bg-text/80 hover:bg-text/90'}`}
+                onMouseDown={() => { setActiveKey(key.note); playNote(key.freq) }}
+                onMouseUp={stopNote}
+                onMouseLeave={() => activeKey === key.note && stopNote()}
+                onTouchStart={() => { setActiveKey(key.note); playNote(key.freq) }}
+                onTouchEnd={stopNote}
+                whileTap={{ scaleY: 0.97 }}
+                style={{ originY: 0 }}
+              />
+            ))}
+          </div>
+          {/* Black keys */}
+          <div className="absolute top-0 left-0 flex">
+            {whiteKeys.slice(0, -1).map((_, i) => {
+              const blackKey = blackKeys.find(b => b.position === i)
+              if (!blackKey) return <div key={i} className="w-5 mr-[2px]" />
+              return (
+                <div key={i} className="w-5 mr-[2px] flex justify-end">
+                  <motion.div
+                    className={`w-3 h-6 rounded-b cursor-pointer -mr-[7px] z-10 transition-colors duration-75
+                      ${activeKey === blackKey.note 
+                        ? 'bg-accent' 
+                        : 'bg-bg hover:bg-bg-secondary'}`}
+                    onMouseDown={(e) => { e.stopPropagation(); setActiveKey(blackKey.note); playNote(blackKey.freq) }}
+                    onMouseUp={stopNote}
+                    onMouseLeave={() => activeKey === blackKey.note && stopNote()}
+                    onTouchStart={() => { setActiveKey(blackKey.note); playNote(blackKey.freq) }}
+                    onTouchEnd={stopNote}
+                    whileTap={{ scaleY: 0.95 }}
+                    style={{ originY: 0 }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
       {hasPlayed && (
         <motion.p 
