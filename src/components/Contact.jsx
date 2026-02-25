@@ -19,20 +19,7 @@ function HiddenOtamatone() {
   const oscillatorRef = useRef(null)
   const gainRef = useRef(null)
 
-  const updatePitch = useCallback((clientY) => {
-    if (!stemRef.current) return
-    const rect = stemRef.current.getBoundingClientRect()
-    const relativeY = (clientY - rect.top) / rect.height
-    const clampedY = Math.max(0, Math.min(1, relativeY))
-    setPitch(1 - clampedY)
-    
-    const freq = 200 + (1 - clampedY) * 500
-    if (oscillatorRef.current) {
-      oscillatorRef.current.frequency.value = freq
-    }
-  }, [])
-
-  const startSound = useCallback((clientY) => {
+  const startSound = useCallback((initialPitch = 0.5) => {
     const ctx = getAudioContext()
     if (ctx.state === 'suspended') ctx.resume()
     
@@ -42,7 +29,7 @@ function HiddenOtamatone() {
     const gain = ctx.createGain()
     
     osc.type = 'sine'
-    osc.frequency.value = 200 + pitch * 500
+    osc.frequency.value = 200 + initialPitch * 500
     gain.gain.value = 0.2
     
     osc.connect(gain)
@@ -52,12 +39,11 @@ function HiddenOtamatone() {
     oscillatorRef.current = osc
     gainRef.current = gain
     setIsPressed(true)
-    if (clientY) updatePitch(clientY)
-  }, [pitch, updatePitch])
+  }, [])
 
   const stopSound = useCallback(() => {
     if (gainRef.current) {
-      gainRef.current.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 0.1)
+      gainRef.current.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 0.15)
     }
     setTimeout(() => {
       if (oscillatorRef.current) {
@@ -65,32 +51,66 @@ function HiddenOtamatone() {
         oscillatorRef.current = null
         gainRef.current = null
       }
-    }, 100)
+    }, 150)
     setIsPressed(false)
   }, [])
 
-  const handleMouthHover = (e) => {
+  const updatePitch = useCallback((clientY) => {
+    if (!stemRef.current) return
+    const rect = stemRef.current.getBoundingClientRect()
+    const relativeY = (clientY - rect.top) / rect.height
+    const clampedY = Math.max(0, Math.min(1, relativeY))
+    const newPitch = 1 - clampedY
+    setPitch(newPitch)
+    
+    const freq = 200 + newPitch * 500
+    if (oscillatorRef.current) {
+      oscillatorRef.current.frequency.value = freq
+    }
+  }, [])
+
+  // Face hover - plays sound and controls volume via mouth position
+  const handleFaceEnter = () => {
+    startSound(pitch)
+  }
+
+  const handleFaceMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const relativeY = (e.clientY - rect.top) / rect.height
-    setMouthOpen(Math.max(0, Math.min(1, relativeY)))
+    const mouth = Math.max(0, Math.min(1, relativeY))
+    setMouthOpen(mouth)
     
+    // Mouth position controls volume
     if (gainRef.current) {
-      gainRef.current.gain.value = 0.1 + relativeY * 0.2
+      gainRef.current.gain.value = 0.05 + mouth * 0.25
     }
   }
 
+  const handleFaceLeave = () => {
+    setMouthOpen(0)
+    stopSound()
+  }
+
+  // Stem controls pitch
+  const handleStemDown = (clientY) => {
+    if (!oscillatorRef.current) {
+      startSound(pitch)
+    }
+    updatePitch(clientY)
+  }
+
   return (
-    <div className="flex items-center justify-center gap-1 opacity-30 hover:opacity-100 transition-opacity duration-500">
+    <div className="flex items-center justify-center gap-1 opacity-40 hover:opacity-100 transition-opacity duration-500">
       {/* Stem - drag for pitch */}
       <div 
         ref={stemRef}
         className={`w-2 h-16 rounded-full cursor-pointer relative transition-colors
           ${isPressed ? 'bg-accent' : 'bg-text/30 hover:bg-text/50'}`}
-        onMouseDown={(e) => startSound(e.clientY)}
+        onMouseDown={(e) => handleStemDown(e.clientY)}
         onMouseUp={stopSound}
-        onMouseLeave={stopSound}
+        onMouseLeave={() => { if (!isPressed) return; stopSound() }}
         onMouseMove={(e) => isPressed && updatePitch(e.clientY)}
-        onTouchStart={(e) => startSound(e.touches[0].clientY)}
+        onTouchStart={(e) => handleStemDown(e.touches[0].clientY)}
         onTouchMove={(e) => isPressed && updatePitch(e.touches[0].clientY)}
         onTouchEnd={stopSound}
         style={{ touchAction: 'none' }}
@@ -103,26 +123,36 @@ function HiddenOtamatone() {
         />
       </div>
 
-      {/* Head/face */}
+      {/* Head/face - hover to play, move for volume */}
       <div 
-        className={`w-10 h-10 rounded-full flex items-center justify-center relative cursor-pointer transition-colors
-          ${isPressed ? 'bg-accent' : 'bg-text/60'}`}
-        onMouseMove={handleMouthHover}
-        onMouseLeave={() => setMouthOpen(0)}
+        className={`w-12 h-12 rounded-full flex items-center justify-center relative cursor-pointer transition-colors
+          ${isPressed ? 'bg-accent' : 'bg-text/70 hover:bg-text/80'}`}
+        onMouseEnter={handleFaceEnter}
+        onMouseMove={handleFaceMove}
+        onMouseLeave={handleFaceLeave}
       >
         {/* Eyes */}
-        <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-bg rounded-full" />
-        <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-bg rounded-full" />
+        <div className="absolute top-2.5 left-2.5 w-2 h-2 bg-bg rounded-full" />
+        <div className="absolute top-2.5 right-2.5 w-2 h-2 bg-bg rounded-full" />
         
         {/* Mouth */}
         <motion.div 
-          className="absolute bottom-2 w-3 bg-bg rounded-full"
+          className="absolute bottom-2.5 bg-bg rounded-full"
           animate={{ 
-            height: 2 + mouthOpen * 6,
+            width: 8 + mouthOpen * 4,
+            height: 3 + mouthOpen * 8,
             borderRadius: mouthOpen > 0.3 ? '50%' : '9999px'
           }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         />
+
+        {/* Blush when playing */}
+        {isPressed && (
+          <>
+            <div className="absolute top-5 left-1 w-2 h-1 bg-accent/40 rounded-full" />
+            <div className="absolute top-5 right-1 w-2 h-1 bg-accent/40 rounded-full" />
+          </>
+        )}
       </div>
     </div>
   )

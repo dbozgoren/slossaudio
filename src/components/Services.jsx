@@ -10,13 +10,15 @@ const getAudioContext = () => {
   return audioCtx
 }
 
-// Hidden synth that looks like a waveform graphic
+// Hidden synth with play button and knob
 function HiddenSynth() {
-  const [isActive, setIsActive] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [freq, setFreq] = useState(220)
-  const containerRef = useRef(null)
+  const [waveform, setWaveform] = useState('sawtooth')
+  const knobRef = useRef(null)
   const oscillatorRef = useRef(null)
   const gainRef = useRef(null)
+  const [dragging, setDragging] = useState(false)
 
   const startSound = useCallback(() => {
     const ctx = getAudioContext()
@@ -27,7 +29,7 @@ function HiddenSynth() {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     
-    osc.type = 'sawtooth'
+    osc.type = waveform
     osc.frequency.value = freq
     gain.gain.value = 0.15
     
@@ -37,8 +39,8 @@ function HiddenSynth() {
     
     oscillatorRef.current = osc
     gainRef.current = gain
-    setIsActive(true)
-  }, [freq])
+    setIsPlaying(true)
+  }, [freq, waveform])
 
   const stopSound = useCallback(() => {
     if (gainRef.current) {
@@ -51,50 +53,101 @@ function HiddenSynth() {
         gainRef.current = null
       }
     }, 100)
-    setIsActive(false)
+    setIsPlaying(false)
   }, [])
 
-  const handleMove = useCallback((clientX) => {
-    if (!containerRef.current || !isActive) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const relativeX = (clientX - rect.left) / rect.width
-    const clampedX = Math.max(0, Math.min(1, relativeX))
-    const newFreq = 100 + clampedX * 600
-    setFreq(newFreq)
-    if (oscillatorRef.current) {
-      oscillatorRef.current.frequency.value = newFreq
-    }
-  }, [isActive])
+  const togglePlay = () => {
+    if (isPlaying) stopSound()
+    else startSound()
+  }
 
-  // Draw a waveform that responds to frequency
-  const points = Array.from({ length: 40 }, (_, i) => {
-    const x = (i / 39) * 100
-    const y = 50 + Math.sin((i / 39) * Math.PI * 4 + (freq / 100)) * 30
-    return `${x},${y}`
-  }).join(' ')
+  // Update frequency in real-time
+  useEffect(() => {
+    if (oscillatorRef.current) {
+      oscillatorRef.current.frequency.value = freq
+    }
+  }, [freq])
+
+  // Handle waveform change
+  useEffect(() => {
+    if (isPlaying) {
+      stopSound()
+      setTimeout(startSound, 50)
+    }
+  }, [waveform])
+
+  // Knob drag handling
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!dragging || !knobRef.current) return
+      const rect = knobRef.current.getBoundingClientRect()
+      const centerY = rect.top + rect.height / 2
+      const deltaY = centerY - e.clientY
+      const newFreq = Math.max(80, Math.min(800, freq + deltaY * 3))
+      setFreq(newFreq)
+    }
+    const handleMouseUp = () => setDragging(false)
+    
+    if (dragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [dragging, freq])
+
+  const rotation = ((freq - 80) / 720) * 270 - 135
 
   return (
-    <div 
-      ref={containerRef}
-      className={`mt-4 h-12 cursor-pointer transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
-      onMouseDown={(e) => { startSound(); handleMove(e.clientX) }}
-      onMouseMove={(e) => handleMove(e.clientX)}
-      onMouseUp={stopSound}
-      onMouseLeave={stopSound}
-      onTouchStart={(e) => { startSound(); handleMove(e.touches[0].clientX) }}
-      onTouchMove={(e) => handleMove(e.touches[0].clientX)}
-      onTouchEnd={stopSound}
-      style={{ touchAction: 'none' }}
-    >
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        <polyline
-          points={points}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className={isActive ? 'text-accent' : 'text-text/40'}
-        />
-      </svg>
+    <div className="mt-4 pt-4 border-t border-border/30 opacity-50 hover:opacity-100 transition-opacity duration-300">
+      <div className="flex items-center gap-3">
+        {/* Play/Stop button */}
+        <motion.button
+          onClick={togglePlay}
+          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono transition-colors
+            ${isPlaying ? 'bg-accent text-bg' : 'bg-text/20 text-text/60 hover:bg-text/30'}`}
+          whileTap={{ scale: 0.95 }}
+        >
+          {isPlaying ? '■' : '▶'}
+        </motion.button>
+
+        {/* Frequency knob */}
+        <div className="flex flex-col items-center">
+          <div
+            ref={knobRef}
+            className={`w-8 h-8 rounded-full border-2 cursor-grab active:cursor-grabbing flex items-center justify-center
+              ${dragging ? 'border-accent' : 'border-text/30 hover:border-text/50'}`}
+            onMouseDown={() => setDragging(true)}
+            style={{ touchAction: 'none' }}
+          >
+            <div 
+              className="w-0.5 h-3 bg-accent rounded-full origin-bottom"
+              style={{ transform: `rotate(${rotation}deg) translateY(-2px)` }}
+            />
+          </div>
+          <span className="text-[9px] font-mono text-text/40 mt-1">{Math.round(freq)}Hz</span>
+        </div>
+
+        {/* Waveform selector */}
+        <div className="flex gap-1">
+          {[
+            { type: 'sine', icon: '∿' },
+            { type: 'sawtooth', icon: '⩘' },
+            { type: 'square', icon: '⊓' },
+          ].map(w => (
+            <button
+              key={w.type}
+              onClick={() => setWaveform(w.type)}
+              className={`w-6 h-6 text-xs rounded transition-colors
+                ${waveform === w.type ? 'bg-accent/20 text-accent' : 'text-text/40 hover:text-text/60'}`}
+            >
+              {w.icon}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
