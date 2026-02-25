@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0a;
+  --color-surface: #111111;
+  --color-surface-2: #1a1a1a;
+  --color-border: #222222;
+  --color-accent: #ff6b2b;
+  --color-accent-dim: #cc5522;
+  --color-accent-glow: #ff6b2b40;
+  --color-text: #fafafa;
+  --color-text-muted: #777777;
+  --color-text-dim: #444444;
+
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--color-bg);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px var(--color-accent-glow), 0 0 60px var(--color-accent-glow);
+}
+
+.glow-text {
+  text-shadow: 0 0 20px var(--color-accent-glow), 0 0 40px var(--color-accent-glow);
+}
