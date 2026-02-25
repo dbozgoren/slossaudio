@@ -1,8 +1,20 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 
 export default function Waveform() {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
+  const [frozen, setFrozen] = useState(false)
+  const frozenRef = useRef(false)
+
+  // Keep ref in sync with state for animation loop
+  useEffect(() => {
+    frozenRef.current = frozen
+  }, [frozen])
+
+  const handleClick = () => {
+    setFrozen(true)
+    setTimeout(() => setFrozen(false), 800)
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -52,7 +64,10 @@ export default function Waveform() {
       drawWave(0.5, 35, 5, 0.9, 0.4, 2)
       drawWave(0.5, 15, 10, 1.8, 0.2, 1)
 
-      time += 0.02
+      // Only advance time if not frozen
+      if (!frozenRef.current) {
+        time += 0.02
+      }
       animRef.current = requestAnimationFrame(animate)
     }
 
@@ -67,8 +82,14 @@ export default function Waveform() {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      style={{ opacity: 1 }}
+      onClick={handleClick}
+      className="absolute inset-0 w-full h-full cursor-pointer"
+      style={{ 
+        opacity: 1,
+        transition: 'filter 0.2s ease',
+        filter: frozen ? 'brightness(1.3) saturate(1.5)' : 'none',
+      }}
+      title="Click to freeze"
     />
   )
 }

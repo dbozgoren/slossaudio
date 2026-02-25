@@ -5,6 +5,8 @@ import Services from './components/Services'
 import Credits from './components/Credits'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
+import VUMeter from './components/VUMeter'
+import EasterEggs from './components/EasterEggs'
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
         <Contact />
       </main>
       <Footer />
+      <VUMeter />
+      <EasterEggs />
     </div>
   )
 }

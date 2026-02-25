@@ -59,9 +59,9 @@ export default function Contact() {
           transition={{ delay: 0.6, duration: 0.8 }}
           className="font-mono text-xs text-text-dim mt-16"
         >
-          * My cat may or may not approve your project.
+          * Field recordings of Pacific Northwest rain included upon request.
           <br />
-          Results not guaranteed. Otamatone noises are free.
+          ↑ ↑ ↓ ↓ ← → ← → B A
         </motion.p>
       </div>
     </section>

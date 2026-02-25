@@ -45,10 +45,10 @@ export default function About() {
 
             <FadeInSection delay={0.3}>
               <p className="text-text-muted leading-relaxed">
-                When I&apos;m not designing sounds, you&apos;ll find me at the piano,
-                recording rain on the Pacific Northwest trails, or getting judged
-                by my cat. I believe the best sound design is felt before it&apos;s
-                heard &mdash; and maybe makes you smile while it does.
+                When I&apos;m not designing sounds, you&apos;ll find me at the piano
+                or recording rain on Pacific Northwest trails. I believe the best
+                sound design is felt before it&apos;s heard &mdash; and maybe makes
+                you smile while it does.
               </p>
             </FadeInSection>
           </div>
@@ -64,7 +64,7 @@ export default function About() {
                     { label: 'IMDB Credits', value: '47+' },
                     { label: 'Based in', value: 'Seattle, WA' },
                     { label: 'Studio', value: 'Sloss Audio' },
-                    { label: 'Cat Approval', value: '~60%' },
+                    { label: 'Sample Rate', value: '96kHz' },
                   ].map((stat) => (
                     <div
                       key={stat.label}
