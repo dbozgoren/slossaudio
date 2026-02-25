@@ -1,4 +1,132 @@
 import { motion } from 'framer-motion'
+import { useState, useRef, useCallback } from 'react'
+
+// Audio context singleton
+let audioCtx = null
+const getAudioContext = () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  }
+  return audioCtx
+}
+
+// Hidden Otamatone that looks like a decorative character
+function HiddenOtamatone() {
+  const [isPressed, setIsPressed] = useState(false)
+  const [mouthOpen, setMouthOpen] = useState(0)
+  const [pitch, setPitch] = useState(0.5)
+  const stemRef = useRef(null)
+  const oscillatorRef = useRef(null)
+  const gainRef = useRef(null)
+
+  const updatePitch = useCallback((clientY) => {
+    if (!stemRef.current) return
+    const rect = stemRef.current.getBoundingClientRect()
+    const relativeY = (clientY - rect.top) / rect.height
+    const clampedY = Math.max(0, Math.min(1, relativeY))
+    setPitch(1 - clampedY)
+    
+    const freq = 200 + (1 - clampedY) * 500
+    if (oscillatorRef.current) {
+      oscillatorRef.current.frequency.value = freq
+    }
+  }, [])
+
+  const startSound = useCallback((clientY) => {
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') ctx.resume()
+    
+    if (oscillatorRef.current) return
+
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    
+    osc.type = 'sine'
+    osc.frequency.value = 200 + pitch * 500
+    gain.gain.value = 0.2
+    
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    
+    oscillatorRef.current = osc
+    gainRef.current = gain
+    setIsPressed(true)
+    if (clientY) updatePitch(clientY)
+  }, [pitch, updatePitch])
+
+  const stopSound = useCallback(() => {
+    if (gainRef.current) {
+      gainRef.current.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 0.1)
+    }
+    setTimeout(() => {
+      if (oscillatorRef.current) {
+        try { oscillatorRef.current.stop() } catch(e) {}
+        oscillatorRef.current = null
+        gainRef.current = null
+      }
+    }, 100)
+    setIsPressed(false)
+  }, [])
+
+  const handleMouthHover = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const relativeY = (e.clientY - rect.top) / rect.height
+    setMouthOpen(Math.max(0, Math.min(1, relativeY)))
+    
+    if (gainRef.current) {
+      gainRef.current.gain.value = 0.1 + relativeY * 0.2
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-1 opacity-30 hover:opacity-100 transition-opacity duration-500">
+      {/* Stem - drag for pitch */}
+      <div 
+        ref={stemRef}
+        className={`w-2 h-16 rounded-full cursor-pointer relative transition-colors
+          ${isPressed ? 'bg-accent' : 'bg-text/30 hover:bg-text/50'}`}
+        onMouseDown={(e) => startSound(e.clientY)}
+        onMouseUp={stopSound}
+        onMouseLeave={stopSound}
+        onMouseMove={(e) => isPressed && updatePitch(e.clientY)}
+        onTouchStart={(e) => startSound(e.touches[0].clientY)}
+        onTouchMove={(e) => isPressed && updatePitch(e.touches[0].clientY)}
+        onTouchEnd={stopSound}
+        style={{ touchAction: 'none' }}
+      >
+        {/* Position indicator */}
+        <motion.div 
+          className="absolute left-1/2 -translate-x-1/2 w-3 h-1 bg-bg rounded-full"
+          animate={{ top: `${(1 - pitch) * 85}%` }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        />
+      </div>
+
+      {/* Head/face */}
+      <div 
+        className={`w-10 h-10 rounded-full flex items-center justify-center relative cursor-pointer transition-colors
+          ${isPressed ? 'bg-accent' : 'bg-text/60'}`}
+        onMouseMove={handleMouthHover}
+        onMouseLeave={() => setMouthOpen(0)}
+      >
+        {/* Eyes */}
+        <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-bg rounded-full" />
+        <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-bg rounded-full" />
+        
+        {/* Mouth */}
+        <motion.div 
+          className="absolute bottom-2 w-3 bg-bg rounded-full"
+          animate={{ 
+            height: 2 + mouthOpen * 6,
+            borderRadius: mouthOpen > 0.3 ? '50%' : '9999px'
+          }}
+          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        />
+      </div>
+    </div>
+  )
+}
 
 export default function Contact() {
   return (
@@ -17,10 +145,15 @@ export default function Contact() {
             Let&apos;s make some{' '}
             <span className="text-accent font-medium italic">noise.</span>
           </h2>
-          <p className="text-text-muted leading-relaxed mb-12 max-w-lg mx-auto">
+          <p className="text-text-muted leading-relaxed mb-8 max-w-lg mx-auto">
             Got a project that needs great audio? Looking for a sound designer
             who brings both precision and personality? Let&apos;s talk.
           </p>
+
+          {/* Hidden Otamatone easter egg */}
+          <div className="mb-8">
+            <HiddenOtamatone />
+          </div>
         </motion.div>
 
         <motion.div
@@ -51,7 +184,7 @@ export default function Contact() {
           </motion.a>
         </motion.div>
 
-        {/* Playful touch */}
+        {/* Subtle hint */}
         <motion.p
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -60,8 +193,6 @@ export default function Contact() {
           className="font-mono text-xs text-text-dim mt-16"
         >
           * Field recordings of Pacific Northwest rain included upon request.
-          <br />
-          ↑ ↑ ↓ ↓ ← → ← → B A
         </motion.p>
       </div>
     </section>

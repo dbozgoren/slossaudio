@@ -1,4 +1,103 @@
 import { motion } from 'framer-motion'
+import { useState, useRef, useEffect, useCallback } from 'react'
+
+// Audio context singleton
+let audioCtx = null
+const getAudioContext = () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  }
+  return audioCtx
+}
+
+// Hidden synth that looks like a waveform graphic
+function HiddenSynth() {
+  const [isActive, setIsActive] = useState(false)
+  const [freq, setFreq] = useState(220)
+  const containerRef = useRef(null)
+  const oscillatorRef = useRef(null)
+  const gainRef = useRef(null)
+
+  const startSound = useCallback(() => {
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') ctx.resume()
+    
+    if (oscillatorRef.current) return
+
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    
+    osc.type = 'sawtooth'
+    osc.frequency.value = freq
+    gain.gain.value = 0.15
+    
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    
+    oscillatorRef.current = osc
+    gainRef.current = gain
+    setIsActive(true)
+  }, [freq])
+
+  const stopSound = useCallback(() => {
+    if (gainRef.current) {
+      gainRef.current.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 0.1)
+    }
+    setTimeout(() => {
+      if (oscillatorRef.current) {
+        try { oscillatorRef.current.stop() } catch(e) {}
+        oscillatorRef.current = null
+        gainRef.current = null
+      }
+    }, 100)
+    setIsActive(false)
+  }, [])
+
+  const handleMove = useCallback((clientX) => {
+    if (!containerRef.current || !isActive) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const relativeX = (clientX - rect.left) / rect.width
+    const clampedX = Math.max(0, Math.min(1, relativeX))
+    const newFreq = 100 + clampedX * 600
+    setFreq(newFreq)
+    if (oscillatorRef.current) {
+      oscillatorRef.current.frequency.value = newFreq
+    }
+  }, [isActive])
+
+  // Draw a waveform that responds to frequency
+  const points = Array.from({ length: 40 }, (_, i) => {
+    const x = (i / 39) * 100
+    const y = 50 + Math.sin((i / 39) * Math.PI * 4 + (freq / 100)) * 30
+    return `${x},${y}`
+  }).join(' ')
+
+  return (
+    <div 
+      ref={containerRef}
+      className={`mt-4 h-12 cursor-pointer transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+      onMouseDown={(e) => { startSound(); handleMove(e.clientX) }}
+      onMouseMove={(e) => handleMove(e.clientX)}
+      onMouseUp={stopSound}
+      onMouseLeave={stopSound}
+      onTouchStart={(e) => { startSound(); handleMove(e.touches[0].clientX) }}
+      onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+      onTouchEnd={stopSound}
+      style={{ touchAction: 'none' }}
+    >
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+        <polyline
+          points={points}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className={isActive ? 'text-accent' : 'text-text/40'}
+        />
+      </svg>
+    </div>
+  )
+}
 
 const services = [
   {
@@ -6,6 +105,7 @@ const services = [
     description:
       'Crafting immersive audio landscapes for games, film, and interactive media. From subtle ambiences to explosive impacts.',
     icon: '~',
+    hasEasterEgg: true,
   },
   {
     title: 'Field Recording',
@@ -86,6 +186,8 @@ export default function Services() {
               <p className="text-sm text-text-muted leading-relaxed">
                 {service.description}
               </p>
+              {/* Hidden synth easter egg in Sound Design card */}
+              {service.hasEasterEgg && <HiddenSynth />}
             </motion.div>
           ))}
         </motion.div>

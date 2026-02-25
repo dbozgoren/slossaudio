@@ -1,4 +1,102 @@
 import { motion } from 'framer-motion'
+import { useState, useRef } from 'react'
+
+// Audio context singleton
+let audioCtx = null
+const getAudioContext = () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  }
+  return audioCtx
+}
+
+// Hidden piano that looks like a decorative graphic
+function HiddenPiano() {
+  const [activeKey, setActiveKey] = useState(null)
+  const [hasPlayed, setHasPlayed] = useState(false)
+  const oscillatorRef = useRef(null)
+  const gainRef = useRef(null)
+
+  const keys = [
+    { note: 'C', freq: 261.63 },
+    { note: 'D', freq: 293.66 },
+    { note: 'E', freq: 329.63 },
+    { note: 'F', freq: 349.23 },
+    { note: 'G', freq: 392.00 },
+    { note: 'A', freq: 440.00 },
+    { note: 'B', freq: 493.88 },
+  ]
+
+  const playNote = (freq) => {
+    setHasPlayed(true)
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') ctx.resume()
+    
+    if (oscillatorRef.current) {
+      oscillatorRef.current.stop()
+    }
+
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    
+    osc.type = 'sine'
+    osc.frequency.value = freq
+    gain.gain.value = 0.2
+    
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    
+    oscillatorRef.current = osc
+    gainRef.current = gain
+  }
+
+  const stopNote = () => {
+    if (gainRef.current) {
+      gainRef.current.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 0.1)
+    }
+    setTimeout(() => {
+      if (oscillatorRef.current) {
+        try { oscillatorRef.current.stop() } catch(e) {}
+        oscillatorRef.current = null
+      }
+    }, 100)
+    setActiveKey(null)
+  }
+
+  return (
+    <div className="mt-6">
+      {/* Looks like a decorative divider/graphic */}
+      <div className="flex justify-center gap-[2px] h-8 opacity-30 hover:opacity-100 transition-opacity duration-500">
+        {keys.map((key) => (
+          <motion.div
+            key={key.note}
+            className={`w-6 rounded-b-sm cursor-pointer transition-colors duration-100
+              ${activeKey === key.note 
+                ? 'bg-accent' 
+                : 'bg-text/40 hover:bg-text/60'}`}
+            onMouseDown={() => { setActiveKey(key.note); playNote(key.freq) }}
+            onMouseUp={stopNote}
+            onMouseLeave={() => activeKey === key.note && stopNote()}
+            onTouchStart={() => { setActiveKey(key.note); playNote(key.freq) }}
+            onTouchEnd={stopNote}
+            whileTap={{ scaleY: 0.95 }}
+            style={{ originY: 0 }}
+          />
+        ))}
+      </div>
+      {hasPlayed && (
+        <motion.p 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center font-mono text-[10px] text-accent/60 mt-2"
+        >
+          ♪
+        </motion.p>
+      )}
+    </div>
+  )
+}
 
 function FadeInSection({ children, className = '', delay = 0 }) {
   return (
@@ -50,6 +148,11 @@ export default function About() {
                 sound design is felt before it&apos;s heard &mdash; and maybe makes
                 you smile while it does.
               </p>
+            </FadeInSection>
+
+            {/* Hidden piano easter egg - looks like decorative keys */}
+            <FadeInSection delay={0.4}>
+              <HiddenPiano />
             </FadeInSection>
           </div>
 
